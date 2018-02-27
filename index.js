@@ -13,8 +13,14 @@ const args = [
 ]
 
 const defaults = {
-    silence: 1.0,
-    threshold: 0.5,
+    trimStart: {
+        duration: 0.01,
+        threshold: 15,
+    },
+    trimEnd: {
+        duration: 1,
+        threshold: 1.5
+    }
 }
 
 let recorder = null
@@ -22,35 +28,52 @@ let recorder = null
 module.exports = {
     /**
      * Start or restart the audio capture
-     * @param {{endSilenceThreshold: number, endSilenceDuration: number, trimBeginning?: boolean, trimEnding?: boolean}} options spawn options.
+     * @param {{trimStart?: {threshold?: number, duration?: number} | boolean, trimEnd?: {threshold?: number, duration?: number}  | boolean}} options
+     * trimStart: if true, beginning will be ignored until 0.01s of above 15% noise
      *
-     * Set threshold to `0` to stop on silence
+     * trimEnd: if true, mic will automatically stop after 1s of below 1.5% noise
      *
-     * Give `silence` value under 1 to cut quicker on silence
+     * if trimming the end, the start will automatically be trimmed too with the default values
+     *
+     * to set other values for duration and threshold, pass an object insead of a boolean
      */
     start: options =>
     {
         if(recorder !== null) recorder.kill()
 
-        const opts = options || {}
+        options = options || {}
 
-        const endSilenceThreshold = (isNaN(opts.threshold) ? defaults.threshold : opts.endSilenceThreshold) + "%"
-        const endSilenceDuration = (isNaN(opts.endSilenceDuration) ? defaults.silence : opts.endSilenceDuration).toFixed(1)
+        const trimStart = options.trimStart ? true : false
+        const trimEnd = options.trimEnd ? true : false
 
-        const allArgs = args.concat([
-            // silence effect of rec
-            "silence",
-            // should silence be trimmed at the beginning
-            options.trimBeginning ? "1" : "0",
-            // how much non-silence before starting in seconds
-            "0.1",
-            // threshold of silence
-            endSilenceThreshold,
-            // should silence be teimmed at the end
-            options.trimEnding ? "1" : "0",
-            // how much silence before stopping, in seconds
-            endSilenceDuration, endSilenceThreshold
-        ])
+        options.trimStart = Object.assign({}, defaults.trimStart, options.trimStart)
+        options.trimEnd = Object.assign({}, defaults.trimEnd, options.trimEnd)
+
+        let allArgs = args
+
+        if(trimStart || trimEnd) {
+            allArgs = allArgs.concat([
+                // silence effect of rec
+                "silence",
+                // should silence be trimmed at the beginning
+                "1",
+                // how much non-silence before starting in seconds
+                options.trimStart.duration.toString(),
+                // silence level in % (0% = pure silence)
+                options.trimStart.threshold.toString() + "%",
+            ])
+        }
+
+        if(trimEnd) {
+            allArgs = allArgs.concat([
+                // should silence be trimmed at the end
+                "1",
+                // how much silence before stopping, in seconds
+                options.trimEnd.duration.toString(),
+                // silence level
+                options.trimEnd.threshold.toString() + "%",
+            ])
+        }
 
         recorder = spawn(cmd, allArgs)
 
