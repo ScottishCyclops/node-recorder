@@ -1,6 +1,6 @@
 {
   "name": "@scottishcyclops/node-recorder",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A simple cross-platform audio recoding utility for node",
   "main": "index.js",
   "scripts": {
